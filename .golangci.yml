@@ -1,0 +1,27 @@
+# golangci-lint v2 設定  https://golangci-lint.run/usage/configuration/
+version: "2"
+
+linters:
+  default: standard        # errcheck / govet / ineffassign / staticcheck / unused
+  enable:
+    - exhaustruct_v5       # 構造体リテラルのフィールド埋め忘れ (旧 exhaustruct は deprecated)
+    - musttag              # json タグの付け忘れ
+  settings:
+    exhaustruct_v5:
+      # internal/ 配下で定義された型のリテラルだけを検査する。
+      # マッチ対象は "<module>/<pkg>.<Type>" の完全修飾名。
+      # ルート (package main) の型は golang_gh.X なので含まれない。
+      explicit-mode: true      # enforce-patterns に一致する型だけを検査する
+      enforce-patterns:
+        - 'golang_gh/internal/.*'
+      # 対象型でも、明示的な空リテラル T{} は許す (エラー時の return T{} など)
+      allow-empty-returns: true
+    govet:
+      enable:
+        - unusedwrite      # コピーへの代入 (range 変数・map 値への書き込み忘れ)
+        - nilness
+  exclusions:
+    rules:
+      # テストコードでは部分初期化を許す
+      - path: '_test\.go'
+        linters: [exhaustruct_v5]
