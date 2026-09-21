@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"fmt"
+	"errors"
 	internalModel "golang_gh/internal/model"
 
 	tea "charm.land/bubbletea/v2"
@@ -9,6 +9,7 @@ import (
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/tree"
+	"github.com/cli/go-gh/v2/pkg/api"
 )
 
 func (m *model) renderChildrenView(githubPR *internalModel.GithubPR, currentIndex int) (*tree.Tree, int) {
@@ -44,18 +45,54 @@ func (m *model) renderChildrenView(githubPR *internalModel.GithubPR, currentInde
 
 }
 
-var organizationNameValue string
+func newRepoForm(prevOwner, prevName string) *huh.Form {
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Github Repository Owner").
+				Key("RepositoryOwner").
+				Prompt("> ").
+				Value(&prevOwner), // ← 前回値を入れておく
+			huh.NewInput().
+				Title("Github Repository Name").
+				Key("RepositoryName").
+				Prompt("> ").
+				Value(&prevName),
+		),
+	)
+}
+
+func humanize(err error) string {
+	if httpError, ok := errors.AsType[*api.HTTPError](err); ok {
+		switch httpError.StatusCode {
+		case 401:
+			return "認証が必要です。gh auth login を実行してください"
+		case 404:
+			return "リポジトリが見つかりません。owner / name を確認してください"
+		case 403:
+			return "アクセス権がないか、レート制限に達しています"
+		}
+	}
+	return err.Error()
+}
 
 func (m model) View() tea.View {
 
 	if m.viewMode == ViewModeSelect {
-		if m.form.State == huh.StateCompleted {
-			view := tea.NewView(fmt.Sprintf("Github Organization Name: %s", organizationNameValue))
-			view.AltScreen = true
-			return view
+		// if m.form.State == huh.StateCompleted {
+		// 	repositoryOwner := m.form.GetString("RepositoryOwner")
+		// 	repositoryName := m.form.GetString("RepositoryName")
+		// 	newForm := newRepoForm(repositoryOwner, repositoryName)
+		// 	m.form = newForm
+		// }
+
+		formView := m.form.View()
+
+		if m.err != nil {
+			formView += "\n" + humanize(m.err)
 		}
 
-		view := tea.NewView(m.form.View())
+		view := tea.NewView(formView)
 		view.AltScreen = true
 		return view
 	}

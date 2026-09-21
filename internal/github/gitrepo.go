@@ -3,7 +3,8 @@ package github
 import (
 	"fmt"
 	"log"
-	"os"
+	"slices"
+	"sort"
 	"time"
 
 	internalModel "golang_gh/internal/model"
@@ -27,7 +28,12 @@ type GithubPRBaseBranchJSON struct {
 	Ref string `json:"ref"`
 }
 
-func GetGithubPRs() (map[uint64]*internalModel.GithubPR, []uint64) {
+type GithubOptions struct {
+	RepositoryOwner string
+	RepositoryName  string
+}
+
+func GetGithubPRs(githubOptions GithubOptions) (githubPRMap map[uint64]*internalModel.GithubPR, nonRootPRIDs []uint64, err error) {
 
 	client, err := api.DefaultRESTClient()
 	if err != nil {
@@ -35,21 +41,18 @@ func GetGithubPRs() (map[uint64]*internalModel.GithubPR, []uint64) {
 	}
 	response := []GithubPRJSON{}
 
-	repositoryOwner := os.Getenv("GH_REPO_OWNER")
-	repositoryName := os.Getenv("GH_REPO_NAME")
-
-	err = client.Get(fmt.Sprintf("repos/%s/%s/pulls", repositoryOwner, repositoryName), &response)
+	err = client.Get(fmt.Sprintf("repos/%s/%s/pulls", githubOptions.RepositoryOwner, githubOptions.RepositoryName), &response)
 	if err != nil {
-		log.Fatal(err)
+		return
 	}
 
-	githubPRMap := make(map[uint64]*internalModel.GithubPR, len(response))
+	githubPRMap = make(map[uint64]*internalModel.GithubPR, len(response))
 
 	for _, pr := range response {
 		githubPRMap[pr.ID] = &internalModel.GithubPR{ID: pr.ID, Body: pr.Body, Title: pr.Title, URL: pr.HTMLURL, Children: []*internalModel.GithubPR{}, Base: pr.Base.Ref, Head: pr.Head.Ref, CreatedAt: pr.CreatedAt, UpdatedAt: pr.UpdatedAt}
 	}
 
-	nonRootPRIDs := make([]uint64, 0)
+	nonRootPRIDs = make([]uint64, 0)
 
 	for prID1 := range githubPRMap {
 		for prID2 := range githubPRMap {
@@ -62,5 +65,34 @@ func GetGithubPRs() (map[uint64]*internalModel.GithubPR, []uint64) {
 		}
 	}
 
-	return githubPRMap, nonRootPRIDs
+	return githubPRMap, nonRootPRIDs, nil
+}
+
+func LoadGithubPRs(githubOptions GithubOptions) (rootGithubPRList []*internalModel.GithubPR, githubPRs map[uint64]*internalModel.GithubPR, err error) {
+	githubPRs, nonRootPRIDs, err := GetGithubPRs(githubOptions)
+
+	if err != nil {
+		return
+	}
+
+	githubPRList := []*internalModel.GithubPR{}
+
+	for _, githubPR := range githubPRs {
+		githubPRList = append(githubPRList, githubPR)
+	}
+
+	sort.Slice(githubPRList, func(i, j int) bool {
+		return githubPRList[i].CreatedAt.UnixMilli() > githubPRList[j].CreatedAt.UnixMilli()
+	})
+
+	rootGithubPRList = make([]*internalModel.GithubPR, 0)
+
+	for _, githubPR := range githubPRList {
+		if !slices.Contains(nonRootPRIDs, githubPR.ID) {
+			rootGithubPRList = append(rootGithubPRList, githubPR)
+		}
+	}
+
+	return rootGithubPRList, githubPRs, nil
+
 }

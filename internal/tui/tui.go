@@ -1,13 +1,11 @@
 package tui
 
 import (
-	"slices"
-	"sort"
+	"database/sql"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	internalGithub "golang_gh/internal/github"
 	internalModel "golang_gh/internal/model"
 
 	"charm.land/huh/v2"
@@ -31,6 +29,8 @@ type model struct {
 	tree     treeModel
 	form     *huh.Form
 	viewMode ViewMode
+	err      error
+	db       *sql.DB
 }
 
 type selectModel struct {
@@ -42,6 +42,8 @@ type treeModel struct {
 	githubPRs        map[uint64]*internalModel.GithubPR
 	rootGithubPRList []*internalModel.GithubPR
 	viewMode         TreeViewMode
+	repositoryOwner  string
+	repositoryName   string
 }
 
 type TreeViewMode int
@@ -51,42 +53,29 @@ const (
 	TreeViewModeDetail
 )
 
-func InitializeModel() model {
-	githubPRs, nonRootPRIDs := internalGithub.GetGithubPRs()
-	githubPRList := []*internalModel.GithubPR{}
-
-	for _, githubPR := range githubPRs {
-		githubPRList = append(githubPRList, githubPR)
-	}
-
-	sort.Slice(githubPRList, func(i, j int) bool {
-		return githubPRList[i].CreatedAt.UnixMilli() > githubPRList[j].CreatedAt.UnixMilli()
-	})
-
-	rootGithubPRList := make([]*internalModel.GithubPR, 0)
-
-	for _, githubPR := range githubPRList {
-		if !slices.Contains(nonRootPRIDs, githubPR.ID) {
-			rootGithubPRList = append(rootGithubPRList, githubPR)
-		}
-	}
+func InitializeModel(db *sql.DB) model {
 
 	return model{
 		tree: treeModel{
 			cursor:           0,
-			githubPRs:        githubPRs,
-			rootGithubPRList: rootGithubPRList,
+			githubPRs:        make(map[uint64]*internalModel.GithubPR, 0),
+			rootGithubPRList: make([]*internalModel.GithubPR, 0),
 			viewMode:         TreeViewModeList,
 		},
 		form: huh.NewForm(
 			huh.NewGroup(
 				huh.NewInput().
-					Title("Github Organization Name").
-					Value(&organizationNameValue).
-					Prompt(">"),
+					Title("Github Repository Owner").
+					Key("RepositoryOwner").
+					Prompt("> "),
+				huh.NewInput().
+					Title("Github Repository Name").
+					Key("RepositoryName").
+					Prompt("> "),
 			),
 		),
 		viewMode: ViewModeSelect,
+		db:       db,
 	}
 }
 

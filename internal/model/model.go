@@ -1,6 +1,8 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 type GithubPR struct {
 	ID        uint64
@@ -12,4 +14,18 @@ type GithubPR struct {
 	UpdatedAt time.Time
 	Children  []*GithubPR
 	Body      string
+}
+
+type RepositorySetting struct {
+	repositoryOwner string
+	repositoryName  string
+}
+
+type Setting struct {
+	repositorySetting []RepositorySetting
+}
+
+type SettingRepository interface {
+	saveRepositorySetting(repositorySetting RepositorySetting)
+	getRepositorySetting() RepositorySetting
 }

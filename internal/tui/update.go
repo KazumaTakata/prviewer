@@ -1,6 +1,7 @@
 package tui
 
 import (
+	github "golang_gh/internal/github"
 	internalModel "golang_gh/internal/model"
 	"log"
 	"os"
@@ -16,6 +17,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		form, cmd := m.form.Update(msg)
 		if f, ok := form.(*huh.Form); ok {
 			m.form = f
+		}
+
+		if m.form.State == huh.StateCompleted {
+			repositoryOwner := m.form.GetString("RepositoryOwner")
+			repositoryName := m.form.GetString("RepositoryName")
+
+			if repositoryOwner != m.tree.repositoryOwner || repositoryName != m.tree.repositoryName {
+				m.tree.repositoryOwner = repositoryOwner
+				m.tree.repositoryName = repositoryName
+				options := github.GithubOptions{
+					RepositoryName:  repositoryName,
+					RepositoryOwner: repositoryOwner,
+				}
+				rootGithubPRList, githubPRs, err := github.LoadGithubPRs(options)
+				m.err = err
+				if err == nil {
+					m.tree.rootGithubPRList = rootGithubPRList
+					m.tree.githubPRs = githubPRs
+					m.viewMode = ViewModeTree
+				}
+
+			}
+
+			newForm := newRepoForm(repositoryOwner, repositoryName)
+			m.form = newForm
 		}
 
 		switch msg := msg.(type) {
