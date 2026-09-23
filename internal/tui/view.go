@@ -2,12 +2,14 @@ package tui
 
 import (
 	"errors"
+	"fmt"
 	internalModel "golang_gh/internal/model"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/list"
 	"charm.land/lipgloss/v2/tree"
 	"github.com/cli/go-gh/v2/pkg/api"
 )
@@ -92,9 +94,26 @@ func (m model) View() tea.View {
 			formView += "\n" + humanize(m.err)
 		}
 
-		view := tea.NewView(formView)
+		repositorySettings, err := m.repository.GetRepositorySetting()
+
+		if err != nil {
+			view := tea.NewView(formView)
+			view.AltScreen = true
+			return view
+		}
+
+		list := list.New()
+		for _, repositorySettings := range repositorySettings {
+			repositoryString := fmt.Sprintf("%s/%s", repositorySettings.RepositoryOwner, repositorySettings.RepositoryName)
+			list.Item(repositoryString)
+		}
+
+		stack := lipgloss.JoinVertical(lipgloss.Left, list.String()+"\n\n", formView)
+		view := tea.NewView(stack)
+
 		view.AltScreen = true
 		return view
+
 	}
 
 	myTree := tree.Root(".")

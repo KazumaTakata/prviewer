@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"golang_gh/internal/repository"
 	internalTUI "golang_gh/internal/tui"
 
 	_ "modernc.org/sqlite"
@@ -50,7 +51,14 @@ func main() {
 
 	defer db.Close()
 
-	p := tea.NewProgram(internalTUI.InitializeModel(db))
+	repository, err := repository.NewSettingRepository(db)
+
+	if err != nil {
+		fmt.Printf("there's been an error: %v", err)
+		os.Exit(1)
+	}
+
+	p := tea.NewProgram(internalTUI.InitializeModel(repository))
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)

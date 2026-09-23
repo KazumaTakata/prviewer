@@ -17,8 +17,8 @@ type GithubPR struct {
 }
 
 type RepositorySetting struct {
-	repositoryOwner string
-	repositoryName  string
+	RepositoryOwner string
+	RepositoryName  string
 }
 
 type Setting struct {
@@ -26,6 +26,6 @@ type Setting struct {
 }
 
 type SettingRepository interface {
-	saveRepositorySetting(repositorySetting RepositorySetting)
-	getRepositorySetting() RepositorySetting
+	SaveRepositorySetting(repositorySetting RepositorySetting) error
+	GetRepositorySetting() ([]RepositorySetting, error)
 }

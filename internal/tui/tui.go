@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"database/sql"
+	"fmt"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -26,11 +26,12 @@ const (
 )
 
 type model struct {
-	tree     treeModel
-	form     *huh.Form
-	viewMode ViewMode
-	err      error
-	db       *sql.DB
+	tree               treeModel
+	settingHistoryForm *huh.Select[string]
+	form               *huh.Form
+	viewMode           ViewMode
+	err                error
+	repository         internalModel.SettingRepository
 }
 
 type selectModel struct {
@@ -53,7 +54,18 @@ const (
 	TreeViewModeDetail
 )
 
-func InitializeModel(db *sql.DB) model {
+func InitializeModel(repo internalModel.SettingRepository) model {
+
+	settingHistories, err := repo.GetRepositorySetting()
+
+	selectForm := huh.NewSelect[string]()
+
+	if err == nil {
+		for _, settingHistories := range settingHistories {
+			option := fmt.Sprintf("%s/%s", settingHistories.RepositoryOwner, settingHistories.RepositoryName)
+			selectForm.Options(huh.NewOption(option, option))
+		}
+	}
 
 	return model{
 		tree: treeModel{
@@ -62,6 +74,14 @@ func InitializeModel(db *sql.DB) model {
 			rootGithubPRList: make([]*internalModel.GithubPR, 0),
 			viewMode:         TreeViewModeList,
 		},
+		settingHistoryForm: huh.NewSelect[string]().
+			Title("Pick a country.").
+			Options(
+				huh.NewOption("United States", "US"),
+				huh.NewOption("Germany", "DE"),
+				huh.NewOption("Brazil", "BR"),
+				huh.NewOption("Canada", "CA"),
+			),
 		form: huh.NewForm(
 			huh.NewGroup(
 				huh.NewInput().
@@ -74,8 +94,8 @@ func InitializeModel(db *sql.DB) model {
 					Prompt("> "),
 			),
 		),
-		viewMode: ViewModeSelect,
-		db:       db,
+		viewMode:   ViewModeSelect,
+		repository: repo,
 	}
 }
 

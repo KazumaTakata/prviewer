@@ -8,6 +8,7 @@ require (
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/cli/go-gh/v2 v2.16.0
+	github.com/go-jet/jet/v2 v2.16.0
 	modernc.org/sqlite v1.59.0
 )
 

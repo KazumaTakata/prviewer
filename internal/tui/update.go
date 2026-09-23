@@ -36,6 +36,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.tree.rootGithubPRList = rootGithubPRList
 					m.tree.githubPRs = githubPRs
 					m.viewMode = ViewModeTree
+					m.repository.SaveRepositorySetting(internalModel.RepositorySetting{RepositoryOwner: repositoryOwner, RepositoryName: repositoryName})
 				}
 
 			}
