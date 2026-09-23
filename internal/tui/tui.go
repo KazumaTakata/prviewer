@@ -2,7 +2,9 @@ package tui
 
 import (
 	"fmt"
+	"log/slog"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
@@ -26,12 +28,12 @@ const (
 )
 
 type model struct {
-	tree               treeModel
-	settingHistoryForm *huh.Select[string]
-	form               *huh.Form
-	viewMode           ViewMode
-	err                error
-	repository         internalModel.SettingRepository
+	tree       treeModel
+	form       *huh.Form
+	viewMode   ViewMode
+	isLoading  bool
+	err        error
+	repository internalModel.SettingRepository
 }
 
 type selectModel struct {
@@ -54,18 +56,54 @@ const (
 	TreeViewModeDetail
 )
 
+// navKeyMap は既定のキーマップに ↑↓ でのフィールド移動を足したもの。
+// Select は ↑↓ を選択肢の移動に使うためそのまま。Select から抜けるのは tab。
+func navKeyMap() *huh.KeyMap {
+	km := huh.NewDefaultKeyMap()
+	km.Input.Next = key.NewBinding(key.WithKeys("enter", "tab", "down"), key.WithHelp("↓/enter", "next"))
+	km.Input.Prev = key.NewBinding(key.WithKeys("shift+tab", "up"), key.WithHelp("↑", "back"))
+	return km
+}
+
 func InitializeModel(repo internalModel.SettingRepository) model {
 
 	settingHistories, err := repo.GetRepositorySetting()
 
-	selectForm := huh.NewSelect[string]()
+	selectForm := huh.NewSelect[internalModel.RepositorySetting]().Title("リポジトリー履歴").Key(SelectFormKey)
 
-	if err == nil {
-		for _, settingHistories := range settingHistories {
-			option := fmt.Sprintf("%s/%s", settingHistories.RepositoryOwner, settingHistories.RepositoryName)
-			selectForm.Options(huh.NewOption(option, option))
-		}
+	if err != nil {
+		slog.Warn("リポジトリ履歴の読み込みに失敗しました", "err", err)
 	}
+
+	options := make([]huh.Option[internalModel.RepositorySetting], len(settingHistories))
+
+	for i, settingHistory := range settingHistories {
+		option := fmt.Sprintf("%s/%s", settingHistory.RepositoryOwner, settingHistory.RepositoryName)
+		options[i] = huh.NewOption(option, settingHistory)
+	}
+
+	selectForm.Options(options...)
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			selectForm,
+		),
+		huh.NewGroup(
+			huh.NewNote().Title("新しく入力する"),
+			huh.NewInput().
+				Title("Github Repository Owner").
+				Key("RepositoryOwner").
+				Prompt("> "),
+			huh.NewInput().
+				Title("Github Repository Name").
+				Key("RepositoryName").
+				Prompt("> "),
+		),
+	)
+
+	form.WithLayout(huh.LayoutStack)
+
+	form.WithKeyMap(navKeyMap())
 
 	return model{
 		tree: treeModel{
@@ -74,26 +112,7 @@ func InitializeModel(repo internalModel.SettingRepository) model {
 			rootGithubPRList: make([]*internalModel.GithubPR, 0),
 			viewMode:         TreeViewModeList,
 		},
-		settingHistoryForm: huh.NewSelect[string]().
-			Title("Pick a country.").
-			Options(
-				huh.NewOption("United States", "US"),
-				huh.NewOption("Germany", "DE"),
-				huh.NewOption("Brazil", "BR"),
-				huh.NewOption("Canada", "CA"),
-			),
-		form: huh.NewForm(
-			huh.NewGroup(
-				huh.NewInput().
-					Title("Github Repository Owner").
-					Key("RepositoryOwner").
-					Prompt("> "),
-				huh.NewInput().
-					Title("Github Repository Name").
-					Key("RepositoryName").
-					Prompt("> "),
-			),
-		),
+		form:       form,
 		viewMode:   ViewModeSelect,
 		repository: repo,
 	}

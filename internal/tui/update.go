@@ -11,9 +11,57 @@ import (
 	"github.com/cli/go-gh/v2/pkg/browser"
 )
 
+type prsLoadedMsg struct {
+	githubPRs     map[uint64]*internalModel.GithubPR
+	rootGithubPRs []*internalModel.GithubPR
+	options       github.GithubOptions
+}
+
+type prsFailedMsg struct{ err error }
+
+func fetchPRs(options github.GithubOptions) tea.Cmd {
+	return func() tea.Msg {
+		rootGithubPRs, githubPRs, err := github.LoadGithubPRs(options)
+		log.Printf("fetchPRs: %v", rootGithubPRs)
+		if err != nil {
+			return prsFailedMsg{err: err}
+		}
+		return prsLoadedMsg{githubPRs: githubPRs, rootGithubPRs: rootGithubPRs, options: options}
+	}
+
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.viewMode == ViewModeSelect {
+		log.Printf("update m.form.GetFocusedField().GetKey(): %s", m.form.GetFocusedField().GetKey())
+
+		if m.form.GetFocusedField().GetKey() == SelectFormKey {
+			if keyPressMsg, ok := msg.(tea.KeyPressMsg); ok {
+				log.Printf("update msg.Key().Text: %s", keyPressMsg.String())
+				if keyPressMsg.String() == "enter" {
+					value := m.form.GetFocusedField().GetValue()
+					if repositorySettings, ok := value.(internalModel.RepositorySetting); ok {
+
+						options := github.GithubOptions{
+							RepositoryName:  repositorySettings.RepositoryName,
+							RepositoryOwner: repositorySettings.RepositoryOwner,
+						}
+
+						newForm := newRepoForm(repositorySettings.RepositoryOwner, repositorySettings.RepositoryName)
+						m.form = newForm
+						m.isLoading = true
+
+						return m, fetchPRs(options)
+
+					}
+
+					log.Printf("update getGetFocusedField: %+v", value)
+				}
+			}
+
+		}
+
 		form, cmd := m.form.Update(msg)
 		if f, ok := form.(*huh.Form); ok {
 			m.form = f
@@ -30,22 +78,36 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					RepositoryName:  repositoryName,
 					RepositoryOwner: repositoryOwner,
 				}
-				rootGithubPRList, githubPRs, err := github.LoadGithubPRs(options)
-				m.err = err
-				if err == nil {
-					m.tree.rootGithubPRList = rootGithubPRList
-					m.tree.githubPRs = githubPRs
-					m.viewMode = ViewModeTree
-					m.repository.SaveRepositorySetting(internalModel.RepositorySetting{RepositoryOwner: repositoryOwner, RepositoryName: repositoryName})
-				}
 
+				newForm := newRepoForm(repositoryOwner, repositoryName)
+				m.form = newForm
+				m.isLoading = true
+
+				return m, fetchPRs(options)
 			}
 
 			newForm := newRepoForm(repositoryOwner, repositoryName)
 			m.form = newForm
+
 		}
 
 		switch msg := msg.(type) {
+		case prsLoadedMsg:
+			m.isLoading = false
+			m.tree.rootGithubPRList = msg.rootGithubPRs
+			m.tree.githubPRs = msg.githubPRs
+			log.Printf("update prsLoadedMsg: %v", m.tree.rootGithubPRList)
+
+			m.viewMode = ViewModeTree
+			m.repository.SaveRepositorySetting(internalModel.RepositorySetting{
+				RepositoryOwner: msg.options.RepositoryOwner,
+				RepositoryName:  msg.options.RepositoryName,
+			})
+			return m, nil
+
+		case prsFailedMsg:
+			m.err = msg.err
+			return m, nil
 
 		// Is it a key press?
 		case tea.KeyPressMsg:

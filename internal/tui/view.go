@@ -2,14 +2,12 @@ package tui
 
 import (
 	"errors"
-	"fmt"
 	internalModel "golang_gh/internal/model"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
-	"charm.land/lipgloss/v2/list"
 	"charm.land/lipgloss/v2/tree"
 	"github.com/cli/go-gh/v2/pkg/api"
 )
@@ -81,6 +79,12 @@ func humanize(err error) string {
 func (m model) View() tea.View {
 
 	if m.viewMode == ViewModeSelect {
+		if m.isLoading {
+			view := tea.NewView("loading.......")
+			view.AltScreen = true
+			return view
+		}
+
 		// if m.form.State == huh.StateCompleted {
 		// 	repositoryOwner := m.form.GetString("RepositoryOwner")
 		// 	repositoryName := m.form.GetString("RepositoryName")
@@ -88,28 +92,17 @@ func (m model) View() tea.View {
 		// 	m.form = newForm
 		// }
 
-		formView := m.form.View()
+		// formView := m.form.View()
 
-		if m.err != nil {
-			formView += "\n" + humanize(m.err)
-		}
+		selectView := m.form.View()
 
-		repositorySettings, err := m.repository.GetRepositorySetting()
+		// if m.err != nil {
+		// 	formView += "\n" + humanize(m.err)
+		// }
 
-		if err != nil {
-			view := tea.NewView(formView)
-			view.AltScreen = true
-			return view
-		}
+		// stack := lipgloss.JoinVertical(lipgloss.Left, selectView+"\n\n", formView)
 
-		list := list.New()
-		for _, repositorySettings := range repositorySettings {
-			repositoryString := fmt.Sprintf("%s/%s", repositorySettings.RepositoryOwner, repositorySettings.RepositoryName)
-			list.Item(repositoryString)
-		}
-
-		stack := lipgloss.JoinVertical(lipgloss.Left, list.String()+"\n\n", formView)
-		view := tea.NewView(stack)
+		view := tea.NewView(selectView)
 
 		view.AltScreen = true
 		return view
