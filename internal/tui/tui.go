@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
@@ -24,12 +23,25 @@ type ViewMode int
 
 const (
 	ViewModeTree ViewMode = iota
-	ViewModeSelect
+	ViewModeSetting
 )
+
+type SettingViewMode int
+
+const (
+	SettingViewModeHistory SettingViewMode = iota
+	SettingViewModeNew
+)
+
+type SettingForm struct {
+	selectForm   *huh.Form
+	registerForm *huh.Form
+	viewMode     SettingViewMode
+}
 
 type model struct {
 	tree       treeModel
-	form       *huh.Form
+	form       SettingForm
 	viewMode   ViewMode
 	isLoading  bool
 	err        error
@@ -56,16 +68,7 @@ const (
 	TreeViewModeDetail
 )
 
-// navKeyMap は既定のキーマップに ↑↓ でのフィールド移動を足したもの。
-// Select は ↑↓ を選択肢の移動に使うためそのまま。Select から抜けるのは tab。
-func navKeyMap() *huh.KeyMap {
-	km := huh.NewDefaultKeyMap()
-	km.Input.Next = key.NewBinding(key.WithKeys("enter", "tab", "down"), key.WithHelp("↓/enter", "next"))
-	km.Input.Prev = key.NewBinding(key.WithKeys("shift+tab", "up"), key.WithHelp("↑", "back"))
-	return km
-}
-
-func InitializeModel(repo internalModel.SettingRepository) model {
+func getSelectForm(repo internalModel.SettingRepository) *huh.Form {
 
 	settingHistories, err := repo.GetRepositorySetting()
 
@@ -84,10 +87,20 @@ func InitializeModel(repo internalModel.SettingRepository) model {
 
 	selectForm.Options(options...)
 
-	form := huh.NewForm(
+	selectFormGroup := huh.NewForm(
 		huh.NewGroup(
 			selectForm,
 		),
+	).WithShowHelp(false)
+
+	return selectFormGroup
+}
+
+func InitializeModel(repo internalModel.SettingRepository) model {
+
+	selectFormGroup := getSelectForm(repo)
+
+	newInputFormGroup := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().Title("新しく入力する"),
 			huh.NewInput().
@@ -101,10 +114,6 @@ func InitializeModel(repo internalModel.SettingRepository) model {
 		),
 	)
 
-	form.WithLayout(huh.LayoutStack)
-
-	form.WithKeyMap(navKeyMap())
-
 	return model{
 		tree: treeModel{
 			cursor:           0,
@@ -112,13 +121,14 @@ func InitializeModel(repo internalModel.SettingRepository) model {
 			rootGithubPRList: make([]*internalModel.GithubPR, 0),
 			viewMode:         TreeViewModeList,
 		},
-		form:       form,
-		viewMode:   ViewModeSelect,
+
+		form:       SettingForm{selectForm: selectFormGroup, registerForm: newInputFormGroup, viewMode: SettingViewModeHistory},
+		viewMode:   ViewModeSetting,
 		repository: repo,
 	}
 }
 
 func (m model) Init() tea.Cmd {
 	// Just return `nil`, which means "no I/O right now, please."
-	return m.form.Init()
+	return m.form.selectForm.Init()
 }

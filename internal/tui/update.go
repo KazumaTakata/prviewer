@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"github.com/cli/go-gh/v2/pkg/browser"
@@ -28,112 +29,213 @@ func fetchPRs(options github.GithubOptions) tea.Cmd {
 		}
 		return prsLoadedMsg{githubPRs: githubPRs, rootGithubPRs: rootGithubPRs, options: options}
 	}
+}
+
+func (m model) UpdateHistorySetting(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keyPressMsg, ok := msg.(tea.KeyPressMsg); ok {
+		log.Printf("update msg.Key().Text: %s", keyPressMsg.String())
+		if keyPressMsg.String() == "enter" {
+			value := m.form.selectForm.GetFocusedField().GetValue()
+			if repositorySettings, ok := value.(internalModel.RepositorySetting); ok {
+
+				options := github.GithubOptions{
+					RepositoryName:  repositorySettings.RepositoryName,
+					RepositoryOwner: repositorySettings.RepositoryOwner,
+				}
+				//
+				// 					newForm := newRepoForm(repositorySettings.RepositoryOwner, repositorySettings.RepositoryName)
+				// 					m.form = newForm
+				m.isLoading = true
+				//
+				return m, fetchPRs(options)
+
+			}
+
+			log.Printf("update getGetFocusedField: %+v", value)
+		}
+
+	}
+
+	form, cmd := m.form.selectForm.Update(msg)
+	if f, ok := form.(*huh.Form); ok {
+		m.form.selectForm = f
+	}
+
+	switch msg := msg.(type) {
+	case prsLoadedMsg:
+		m.isLoading = false
+		m.tree.rootGithubPRList = msg.rootGithubPRs
+		m.tree.githubPRs = msg.githubPRs
+		log.Printf("update prsLoadedMsg: %v", m.tree.rootGithubPRList)
+
+		m.viewMode = ViewModeTree
+		m.repository.SaveRepositorySetting(internalModel.RepositorySetting{
+			RepositoryOwner: msg.options.RepositoryOwner,
+			RepositoryName:  msg.options.RepositoryName,
+		})
+		return m, nil
+
+	case prsFailedMsg:
+		m.err = msg.err
+		return m, nil
+
+	// Is it a key press?
+	case tea.KeyPressMsg:
+		switch {
+		case key.Matches(msg, registerNewRepositoryKey):
+			{
+				m.form.viewMode = SettingViewModeNew
+				m.form.registerForm =
+					huh.NewForm(
+						huh.NewGroup(
+							huh.NewNote().Title("新しく入力する"),
+							huh.NewInput().
+								Title("Github Repository Owner").
+								Key("RepositoryOwner").
+								Prompt("> "),
+							huh.NewInput().
+								Title("Github Repository Name").
+								Key("RepositoryName").
+								Prompt("> "),
+						),
+					)
+				m.form.registerForm.Init()
+
+				form, _ = m.form.registerForm.Update(struct{}{})
+
+				if f, ok := form.(*huh.Form); ok {
+					m.form.registerForm = f
+				}
+
+			}
+
+		}
+	}
+
+	return m, cmd
 
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func newRepoForm(prevOwner, prevName string) *huh.Form {
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().Title("新しく入力する"),
+			huh.NewInput().
+				Title("Github Repository Owner").
+				Key("RepositoryOwner").
+				Prompt("> ").
+				Value(&prevOwner), // ← 前回値を入れておく
+			huh.NewInput().
+				Title("Github Repository Name").
+				Key("RepositoryName").
+				Prompt("> ").
+				Value(&prevName),
+		),
+	)
+}
 
-	if m.viewMode == ViewModeSelect {
-		log.Printf("update m.form.GetFocusedField().GetKey(): %s", m.form.GetFocusedField().GetKey())
-
-		if m.form.GetFocusedField().GetKey() == SelectFormKey {
-			if keyPressMsg, ok := msg.(tea.KeyPressMsg); ok {
-				log.Printf("update msg.Key().Text: %s", keyPressMsg.String())
-				if keyPressMsg.String() == "enter" {
-					value := m.form.GetFocusedField().GetValue()
-					if repositorySettings, ok := value.(internalModel.RepositorySetting); ok {
-
-						options := github.GithubOptions{
-							RepositoryName:  repositorySettings.RepositoryName,
-							RepositoryOwner: repositorySettings.RepositoryOwner,
-						}
-
-						newForm := newRepoForm(repositorySettings.RepositoryOwner, repositorySettings.RepositoryName)
-						m.form = newForm
-						m.isLoading = true
-
-						return m, fetchPRs(options)
-
-					}
-
-					log.Printf("update getGetFocusedField: %+v", value)
-				}
-			}
-
-		}
-
-		form, cmd := m.form.Update(msg)
-		if f, ok := form.(*huh.Form); ok {
-			m.form = f
-		}
-
-		if m.form.State == huh.StateCompleted {
-			repositoryOwner := m.form.GetString("RepositoryOwner")
-			repositoryName := m.form.GetString("RepositoryName")
-
-			if repositoryOwner != m.tree.repositoryOwner || repositoryName != m.tree.repositoryName {
-				m.tree.repositoryOwner = repositoryOwner
-				m.tree.repositoryName = repositoryName
-				options := github.GithubOptions{
-					RepositoryName:  repositoryName,
-					RepositoryOwner: repositoryOwner,
-				}
-
-				newForm := newRepoForm(repositoryOwner, repositoryName)
-				m.form = newForm
-				m.isLoading = true
-
-				return m, fetchPRs(options)
-			}
-
-			newForm := newRepoForm(repositoryOwner, repositoryName)
-			m.form = newForm
-
-		}
-
-		switch msg := msg.(type) {
-		case prsLoadedMsg:
-			m.isLoading = false
-			m.tree.rootGithubPRList = msg.rootGithubPRs
-			m.tree.githubPRs = msg.githubPRs
-			log.Printf("update prsLoadedMsg: %v", m.tree.rootGithubPRList)
-
-			m.viewMode = ViewModeTree
-			m.repository.SaveRepositorySetting(internalModel.RepositorySetting{
-				RepositoryOwner: msg.options.RepositoryOwner,
-				RepositoryName:  msg.options.RepositoryName,
-			})
-			return m, nil
-
-		case prsFailedMsg:
-			m.err = msg.err
-			return m, nil
-
-		// Is it a key press?
-		case tea.KeyPressMsg:
-
-			// Cool, what was the actual key pressed?
-			switch msg.String() {
-
-			case "tab":
-				{
-					switch m.viewMode {
-					case ViewModeSelect:
-						m.viewMode = ViewModeTree
-					case ViewModeTree:
-						m.viewMode = ViewModeSelect
-					}
-				}
-
-			case "ctrl+c", "q":
-				return m, tea.Quit
-
-			}
-		}
-
-		return m, cmd
+func (m model) UpdateSetting(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.form.viewMode == SettingViewModeHistory {
+		return m.UpdateHistorySetting(msg)
 	}
 
+	if m.form.registerForm.State == huh.StateCompleted {
+		repositoryOwner := m.form.registerForm.GetString("RepositoryOwner")
+		repositoryName := m.form.registerForm.GetString("RepositoryName")
+
+		m.tree.repositoryOwner = repositoryOwner
+		m.tree.repositoryName = repositoryName
+		options := github.GithubOptions{
+			RepositoryName:  repositoryName,
+			RepositoryOwner: repositoryOwner,
+		}
+
+		newForm := newRepoForm(repositoryOwner, repositoryName)
+		m.form.registerForm = newForm
+		m.isLoading = true
+
+		return m, fetchPRs(options)
+
+	}
+
+	switch msg := msg.(type) {
+	case prsLoadedMsg:
+		m.isLoading = false
+		m.tree.rootGithubPRList = msg.rootGithubPRs
+		m.tree.githubPRs = msg.githubPRs
+		log.Printf("update prsLoadedMsg: %v", m.tree.rootGithubPRList)
+
+		m.viewMode = ViewModeTree
+		m.repository.SaveRepositorySetting(internalModel.RepositorySetting{
+			RepositoryOwner: msg.options.RepositoryOwner,
+			RepositoryName:  msg.options.RepositoryName,
+		})
+		return m, nil
+
+	case prsFailedMsg:
+		m.err = msg.err
+		m.isLoading = false
+		form, cmd := m.form.registerForm.Update(msg)
+		if f, ok := form.(*huh.Form); ok {
+			m.form.registerForm = f
+		}
+		return m, cmd
+
+	// Is it a key press?
+	case tea.KeyPressMsg:
+		switch {
+		case key.Matches(msg, registerNewRepositoryKey):
+			{
+
+			}
+
+		}
+
+		// Cool, what was the actual key pressed?
+		switch msg.String() {
+
+		case "tab":
+			{
+				switch m.form.viewMode {
+				case SettingViewModeHistory:
+					m.form.viewMode = SettingViewModeNew
+					m.form.registerForm.Init()
+					form, cmd := m.form.registerForm.Update(msg)
+					if f, ok := form.(*huh.Form); ok {
+						m.form.registerForm = f
+					}
+
+					return m, cmd
+				case SettingViewModeNew:
+					m.form.viewMode = SettingViewModeHistory
+					//
+					// selectForm := getSelectForm(m.repository)
+					// m.form.selectForm = selectForm
+					//
+					form, cmd := m.form.selectForm.Update(msg)
+					if f, ok := form.(*huh.Form); ok {
+						m.form.selectForm = f
+					}
+					m.form.selectForm.Init()
+					return m, cmd
+				}
+			}
+
+		case "ctrl+c", "q":
+			return m, tea.Quit
+
+		}
+	}
+
+	form, cmd := m.form.registerForm.Update(msg)
+	if f, ok := form.(*huh.Form); ok {
+		m.form.registerForm = f
+	}
+
+	return m, cmd
+}
+
+func (m model) UpdateTree(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	// Is it a key press?
@@ -145,10 +247,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab":
 			{
 				switch m.viewMode {
-				case ViewModeSelect:
+				case ViewModeSetting:
 					m.viewMode = ViewModeTree
 				case ViewModeTree:
-					m.viewMode = ViewModeSelect
+					m.viewMode = ViewModeSetting
 				}
 			}
 
@@ -211,6 +313,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Return the updated model to the Bubble Tea runtime for processing.
 	// Note that we're not returning a command.
 	return m, nil
+
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.viewMode == ViewModeSetting {
+		return m.UpdateSetting(msg)
+	}
+
+	return m.UpdateTree(msg)
 }
 
 func (m *model) walkChildren(githubPR *internalModel.GithubPR, currentIndex int) (int, bool) {

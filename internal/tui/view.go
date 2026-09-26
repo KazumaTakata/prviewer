@@ -6,7 +6,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
-	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/tree"
 	"github.com/cli/go-gh/v2/pkg/api"
@@ -45,23 +44,6 @@ func (m *model) renderChildrenView(githubPR *internalModel.GithubPR, currentInde
 
 }
 
-func newRepoForm(prevOwner, prevName string) *huh.Form {
-	return huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Github Repository Owner").
-				Key("RepositoryOwner").
-				Prompt("> ").
-				Value(&prevOwner), // ← 前回値を入れておく
-			huh.NewInput().
-				Title("Github Repository Name").
-				Key("RepositoryName").
-				Prompt("> ").
-				Value(&prevName),
-		),
-	)
-}
-
 func humanize(err error) string {
 	if httpError, ok := errors.AsType[*api.HTTPError](err); ok {
 		switch httpError.StatusCode {
@@ -76,25 +58,25 @@ func humanize(err error) string {
 	return err.Error()
 }
 
-func (m model) View() tea.View {
+func (m model) ViewSelect() tea.View {
+	if m.isLoading {
+		view := tea.NewView("loading.......")
+		view.AltScreen = true
+		return view
+	}
 
-	if m.viewMode == ViewModeSelect {
-		if m.isLoading {
-			view := tea.NewView("loading.......")
-			view.AltScreen = true
-			return view
-		}
+	// if m.form.State == huh.StateCompleted {
+	// 	repositoryOwner := m.form.GetString("RepositoryOwner")
+	// 	repositoryName := m.form.GetString("RepositoryName")
+	// 	newForm := newRepoForm(repositoryOwner, repositoryName)
+	// 	m.form = newForm
+	// }
 
-		// if m.form.State == huh.StateCompleted {
-		// 	repositoryOwner := m.form.GetString("RepositoryOwner")
-		// 	repositoryName := m.form.GetString("RepositoryName")
-		// 	newForm := newRepoForm(repositoryOwner, repositoryName)
-		// 	m.form = newForm
-		// }
+	// formView := m.form.View()
 
-		// formView := m.form.View()
-
-		selectView := m.form.View()
+	if m.form.viewMode == SettingViewModeHistory {
+		help := m.form.selectForm.Help().ShortHelpView(append(m.form.selectForm.KeyBinds(), registerNewRepositoryKey))
+		selectView := m.form.selectForm.View()
 
 		// if m.err != nil {
 		// 	formView += "\n" + humanize(m.err)
@@ -102,11 +84,22 @@ func (m model) View() tea.View {
 
 		// stack := lipgloss.JoinVertical(lipgloss.Left, selectView+"\n\n", formView)
 
-		view := tea.NewView(selectView)
+		view := tea.NewView(selectView + "\n\n" + help)
 
 		view.AltScreen = true
 		return view
+	}
 
+	registerForm := m.form.registerForm.View()
+	view := tea.NewView(registerForm)
+	view.AltScreen = true
+	return view
+
+}
+
+func (m model) View() tea.View {
+	if m.viewMode == ViewModeSetting {
+		return m.ViewSelect()
 	}
 
 	myTree := tree.Root(".")
