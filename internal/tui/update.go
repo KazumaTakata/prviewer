@@ -249,6 +249,11 @@ func (m model) UpdateSetting(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) UpdateTree(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if wheel, ok := msg.(tea.MouseWheelMsg); ok {
+		var cmd tea.Cmd
+		m.tree.viewport, cmd = m.tree.viewport.Update(wheel)
+		return m, cmd // ここで return する
+	}
 
 	switch msg := msg.(type) {
 

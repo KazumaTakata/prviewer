@@ -136,6 +136,7 @@ func (m model) View() tea.View {
 
 			view := tea.NewView(m.tree.viewport.View())
 			view.AltScreen = true
+			view.MouseMode = tea.MouseModeCellMotion
 
 			// Send the UI for rendering
 			return view
