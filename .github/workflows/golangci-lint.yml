@@ -1,0 +1,23 @@
+name: golangci-lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read # only-new-issues で PR の差分を読むため
+
+jobs:
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod # go 1.27.1 に合わせる
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13 # ローカル (v2.13.2) と揃える
