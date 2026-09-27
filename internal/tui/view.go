@@ -15,9 +15,9 @@ func (m *model) renderChildrenView(githubPR *internalModel.GithubPR, currentInde
 	var root *tree.Tree
 	if m.tree.selectedPRID == githubPR.ID {
 		itemStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
-		root = tree.New().Root(itemStyle.Render(githubPR.Title))
+		root = tree.New().Root(itemStyle.Render(renderCard(githubPR, true)))
 	} else {
-		root = tree.New().Root(githubPR.Title)
+		root = tree.New().Root(renderCard(githubPR, false))
 	}
 
 	currentIndex = currentIndex + 1
@@ -32,9 +32,9 @@ func (m *model) renderChildrenView(githubPR *internalModel.GithubPR, currentInde
 		} else {
 			if m.tree.selectedPRID == childPR.ID {
 				itemStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
-				root.Child(itemStyle.Render(childPR.Title))
+				root.Child(itemStyle.Render(renderCard(githubPR, true)))
 			} else {
-				root.Child(childPR.Title)
+				root.Child(renderCard(githubPR, false))
 			}
 		}
 		lastIndex = i
@@ -114,9 +114,9 @@ func (m model) View() tea.View {
 				if len(githubPR.Children) == 0 {
 					if githubPR.ID == m.tree.selectedPRID {
 						itemStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
-						myTree.Child(itemStyle.Render(githubPR.Title))
+						myTree.Child(itemStyle.Render(renderCard(githubPR, true)))
 					} else {
-						myTree.Child(githubPR.Title)
+						myTree.Child(renderCard(githubPR, false))
 					}
 				} else {
 					child, childIndex2 := m.renderChildrenView(githubPR, i+childIndex)
