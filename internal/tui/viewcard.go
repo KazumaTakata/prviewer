@@ -26,7 +26,7 @@ func renderCard(pr *internalModel.GithubPR, selected bool) string {
 	}
 	body := lipgloss.JoinVertical(lipgloss.Left,
 		titleStyle.Render(pr.Title),
-		metaStyle.Render(fmt.Sprintf("@%s · %s", "author")),
+		metaStyle.Render(fmt.Sprintf("@%s", "author")),
 	)
 	return style.Render(body)
 }

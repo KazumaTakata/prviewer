@@ -79,6 +79,8 @@ func (m model) UpdateHistorySetting(msg tea.Msg) (tea.Model, tea.Cmd) {
 			slog.Error("SaveRepositorySettingが失敗", slog.Any("err", err))
 		}
 
+		m.tree.viewport.SetContent(m.renderTree().String())
+
 		return m, nil
 
 	case prsFailedMsg:
@@ -247,6 +249,7 @@ func (m model) UpdateSetting(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) UpdateTree(msg tea.Msg) (tea.Model, tea.Cmd) {
+
 	switch msg := msg.(type) {
 
 	// Is it a key press?
@@ -308,6 +311,8 @@ func (m model) UpdateTree(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	m.tree.viewport.SetContent(m.renderTree().String())
+
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
@@ -328,6 +333,11 @@ func (m model) UpdateTree(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		m.tree.viewport.SetWidth(size.Width)
+		m.tree.viewport.SetHeight(size.Height)
+	}
+
 	if m.viewMode == ViewModeSetting {
 		return m.UpdateSetting(msg)
 	}

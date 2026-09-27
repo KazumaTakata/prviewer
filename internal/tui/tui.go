@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 
 	internalModel "golang_gh/internal/model"
@@ -48,6 +49,7 @@ type treeModel struct {
 	viewMode         TreeViewMode
 	repositoryOwner  string
 	repositoryName   string
+	viewport         viewport.Model
 }
 
 type TreeViewMode int
@@ -112,6 +114,7 @@ func InitializeModel(repo internalModel.SettingRepository) model {
 			repositoryOwner:  "",
 			repositoryName:   "",
 			selectedPRID:     0,
+			viewport:         viewport.New(),
 		},
 
 		form:       SettingForm{selectForm: selectFormGroup, registerForm: newInputFormGroup, viewMode: SettingViewModeHistory},

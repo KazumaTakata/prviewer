@@ -32,9 +32,9 @@ func (m *model) renderChildrenView(githubPR *internalModel.GithubPR, currentInde
 		} else {
 			if m.tree.selectedPRID == childPR.ID {
 				itemStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
-				root.Child(itemStyle.Render(renderCard(githubPR, true)))
+				root.Child(itemStyle.Render(renderCard(childPR, true)))
 			} else {
-				root.Child(renderCard(githubPR, false))
+				root.Child(renderCard(childPR, false))
 			}
 		}
 		lastIndex = i
@@ -97,39 +97,44 @@ func (m model) ViewSelect() tea.View {
 
 }
 
+func (m model) renderTree() *tree.Tree {
+	myTree := tree.New().Enumerator(tree.RoundedEnumerator)
+
+	childIndex := 0
+
+	for i, githubPR := range m.tree.rootGithubPRList {
+		if len(githubPR.Children) == 0 {
+			if githubPR.ID == m.tree.selectedPRID {
+				itemStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
+				myTree.Child(itemStyle.Render(renderCard(githubPR, true)))
+			} else {
+				myTree.Child(renderCard(githubPR, false))
+			}
+		} else {
+			child, childIndex2 := m.renderChildrenView(githubPR, i+childIndex)
+			childIndex += childIndex2
+			myTree.Child(child)
+		}
+	}
+
+	return myTree
+
+}
+
 func (m model) View() tea.View {
 	if m.viewMode == ViewModeSetting {
 		return m.ViewSelect()
 	}
 
-	myTree := tree.Root(".")
-
-	childIndex := 0
-
 	switch m.tree.viewMode {
 	case TreeViewModeList:
 		{
-
-			for i, githubPR := range m.tree.rootGithubPRList {
-				if len(githubPR.Children) == 0 {
-					if githubPR.ID == m.tree.selectedPRID {
-						itemStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
-						myTree.Child(itemStyle.Render(renderCard(githubPR, true)))
-					} else {
-						myTree.Child(renderCard(githubPR, false))
-					}
-				} else {
-					child, childIndex2 := m.renderChildrenView(githubPR, i+childIndex)
-					childIndex += childIndex2
-					myTree.Child(child)
-				}
-			}
-
-			myTree.Enumerator(tree.RoundedEnumerator)
-
+			//
+			// myTree := m.renderTree()
+			//
 			// body := lipgloss.JoinVertical(lipgloss.Top, header, myTree.String())
 
-			view := tea.NewView(myTree.String())
+			view := tea.NewView(m.tree.viewport.View())
 			view.AltScreen = true
 
 			// Send the UI for rendering
