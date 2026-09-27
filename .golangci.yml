@@ -6,6 +6,7 @@ linters:
   enable:
     - exhaustruct_v5       # 構造体リテラルのフィールド埋め忘れ (旧 exhaustruct は deprecated)
     - musttag              # json タグの付け忘れ
+    - exhaustive
   settings:
     exhaustruct_v5:
       # internal/ 配下で定義された型のリテラルだけを検査する。
@@ -20,6 +21,12 @@ linters:
       enable:
         - unusedwrite      # コピーへの代入 (range 変数・map 値への書き込み忘れ)
         - nilness
+    exhaustive:
+      default-signifies-exhaustive: false
+    staticcheck:
+      dot-import-whitelist:
+        - github.com/go-jet/jet/v2/sqlite
+        - golang_gh/.gen/table
   exclusions:
     rules:
       # テストコードでは部分初期化を許す

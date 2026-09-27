@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -35,7 +35,7 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 		return nil, fmt.Errorf("DB を開けません (%s): %w", path, err)
 	}
 	if _, err := sqlDB.ExecContext(ctx, schema); err != nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 		return nil, fmt.Errorf("スキーマ作成: %w", err)
 	}
 	return sqlDB, nil
@@ -47,15 +47,22 @@ func main() {
 		fmt.Println("fatal:", err)
 		os.Exit(1)
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		slog.Error("log書き込み用のファイルをclose", slog.Any("err", err))
+	}()
 
 	db, err := Open(context.Background(), "./db/ghrepo.db")
 
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("sqliteのconnection poolをopen", slog.Any("err", err))
+		os.Exit(1)
 	}
 
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		slog.Error("sqliteのconnection poolをclose", slog.Any("err", err))
+	}()
 
 	repository, err := repository.NewSettingRepository(db)
 

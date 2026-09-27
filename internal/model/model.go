@@ -21,10 +21,6 @@ type RepositorySetting struct {
 	RepositoryName  string
 }
 
-type Setting struct {
-	repositorySetting []RepositorySetting
-}
-
 type SettingRepository interface {
 	SaveRepositorySetting(repositorySetting RepositorySetting) error
 	GetRepositorySetting() ([]RepositorySetting, error)

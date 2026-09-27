@@ -4,6 +4,7 @@ import (
 	github "golang_gh/internal/github"
 	internalModel "golang_gh/internal/model"
 	"log"
+	"log/slog"
 	"os"
 
 	"charm.land/bubbles/v2/key"
@@ -69,10 +70,15 @@ func (m model) UpdateHistorySetting(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Printf("update prsLoadedMsg: %v", m.tree.rootGithubPRList)
 
 		m.viewMode = ViewModeTree
-		m.repository.SaveRepositorySetting(internalModel.RepositorySetting{
+		err := m.repository.SaveRepositorySetting(internalModel.RepositorySetting{
 			RepositoryOwner: msg.options.RepositoryOwner,
 			RepositoryName:  msg.options.RepositoryName,
 		})
+
+		if err != nil {
+			slog.Error("SaveRepositorySettingが失敗", slog.Any("err", err))
+		}
+
 		return m, nil
 
 	case prsFailedMsg:
@@ -166,10 +172,15 @@ func (m model) UpdateSetting(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Printf("update prsLoadedMsg: %v", m.tree.rootGithubPRList)
 
 		m.viewMode = ViewModeTree
-		m.repository.SaveRepositorySetting(internalModel.RepositorySetting{
+		err := m.repository.SaveRepositorySetting(internalModel.RepositorySetting{
 			RepositoryOwner: msg.options.RepositoryOwner,
 			RepositoryName:  msg.options.RepositoryName,
 		})
+
+		if err != nil {
+			slog.Error("SaveRepositorySettingが失敗", slog.Any("err", err))
+		}
+
 		return m, nil
 
 	case prsFailedMsg:

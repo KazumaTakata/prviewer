@@ -78,9 +78,9 @@ func (m model) ViewSelect() tea.View {
 		help := m.form.selectForm.Help().ShortHelpView(append(m.form.selectForm.KeyBinds(), registerNewRepositoryKey))
 		selectView := m.form.selectForm.View()
 
-		// if m.err != nil {
-		// 	formView += "\n" + humanize(m.err)
-		// }
+		if m.err != nil {
+			selectView += "\n" + humanize(m.err)
+		}
 
 		// stack := lipgloss.JoinVertical(lipgloss.Left, selectView+"\n\n", formView)
 

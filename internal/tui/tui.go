@@ -5,18 +5,10 @@ import (
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	internalModel "golang_gh/internal/model"
 
 	"charm.land/huh/v2"
-)
-
-var (
-	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
-	box         = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
-	focused     = box.BorderForeground(lipgloss.Color("212"))
-	dim         = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 )
 
 type ViewMode int
@@ -46,9 +38,6 @@ type model struct {
 	isLoading  bool
 	err        error
 	repository internalModel.SettingRepository
-}
-
-type selectModel struct {
 }
 
 type treeModel struct {
@@ -120,11 +109,16 @@ func InitializeModel(repo internalModel.SettingRepository) model {
 			githubPRs:        make(map[uint64]*internalModel.GithubPR, 0),
 			rootGithubPRList: make([]*internalModel.GithubPR, 0),
 			viewMode:         TreeViewModeList,
+			repositoryOwner:  "",
+			repositoryName:   "",
+			selectedPRID:     0,
 		},
 
 		form:       SettingForm{selectForm: selectFormGroup, registerForm: newInputFormGroup, viewMode: SettingViewModeHistory},
 		viewMode:   ViewModeSetting,
 		repository: repo,
+		isLoading:  false,
+		err:        nil,
 	}
 }
 
